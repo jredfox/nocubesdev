@@ -102,7 +102,7 @@ public class SoftBlockRenderer
             {
                 --facingX;
             }
-            if(renderer.renderAllFaces || block.shouldSideBeRendered(world, facingX, facingY, facingZ, side))
+            if(renderer.renderAllFaces || block.shouldSideBeRendered(state,world, new BlockPos(facingX, facingY, facingZ), EnumFacing.getFront(side)))
             {
                 float colorFactor = 1.0f;
                 Vec3d vertex0 = null;
@@ -158,17 +158,20 @@ public class SoftBlockRenderer
                     vertex4 = points[4];
                 }
                 
-                tessellator.color(shadowTop * colorFactor * colorRed, shadowTop * colorFactor * colorGreen, shadowTop * colorFactor * colorBlue);
-                tessellator.pos(vertex0.x, vertex0.y, vertex0.z).tex(minU, maxV);
-                tessellator.pos(vertex2.x, vertex2.y, vertex2.z).tex(minU, maxV);
-                tessellator.pos(vertex4.x, vertex4.y, vertex4.z).tex(minU, maxV);
+                int packedLight = state.getPackedLightmapCoords(world, pos);
+                int skyLight = packedLight >> 16 & 0xFFFF;
+                int blockLight = packedLight & 0xFFFF;
+               
+                tessellator.pos(vertex0.x, vertex0.y, vertex0.z).color(shadowTop * colorFactor * colorRed, shadowTop * colorFactor * colorGreen, shadowTop * colorFactor * colorBlue,0xFF).tex(minU, maxV).lightmap(skyLight, blockLight).endVertex();
+                tessellator.pos(vertex2.x, vertex2.y, vertex2.z).color(shadowTop * colorFactor * colorRed, shadowTop * colorFactor * colorGreen, shadowTop * colorFactor * colorBlue,0xFF).tex(minU, maxV).lightmap(skyLight, blockLight).endVertex();
+                tessellator.pos(vertex3.x, vertex3.y, vertex3.z).color(shadowTop * colorFactor * colorRed, shadowTop * colorFactor * colorGreen, shadowTop * colorFactor * colorBlue,0xFF).tex(minU, maxV).lightmap(skyLight, blockLight).endVertex();
+                tessellator.pos(vertex4.x, vertex4.y, vertex4.z).color(shadowTop * colorFactor * colorRed, shadowTop * colorFactor * colorGreen, shadowTop * colorFactor * colorBlue,0xFF).tex(minU, maxV).lightmap(skyLight, blockLight).endVertex();
                 
-                tessellator.setBrightness(block.getMixedBrightnessForBlock(world, facingX, facingY, facingZ));
-                tessellator.setColorOpaque_F(shadowTop * colorFactor * colorRed, shadowTop * colorFactor * colorGreen, shadowTop * colorFactor * colorBlue);
+                /*tessellator.setColorOpaque_F(shadowTop * colorFactor * colorRed, shadowTop * colorFactor * colorGreen, shadowTop * colorFactor * colorBlue);
                 tessellator.addVertexWithUV(vertex0.x, vertex0.y, vertex0.z, minU, maxV);
                 tessellator.addVertexWithUV(vertex2.x, vertex2.y, vertex2.z, maxU, maxV);
                 tessellator.addVertexWithUV(vertex3.x, vertex3.y, vertex3.z, maxU, minV);
-                tessellator.addVertexWithUV(vertex4.x, vertex4.y, vertex4.z, minU, minV);
+                tessellator.addVertexWithUV(vertex4.x, vertex4.y, vertex4.z, minU, minV);*/
             }
         }
         return true;
@@ -187,7 +190,7 @@ public class SoftBlockRenderer
     public static boolean isBlockAirOrPlant(final IBlockState state)
     {
         final Material material = state.getBlock().getMaterial(state);
-        return material == Material.AIR || material == Material.PLANTS || material == Material.VINE || NoCubes.isBlockLiquid(block);
+        return material == Material.AIR || material == Material.PLANTS || material == Material.VINE || NoCubes.isBlockLiquid(state.getBlock());
     }
 
     public static boolean doesPointTopIntersectWithAir(final IBlockAccess world, final Vec3d point)
@@ -260,7 +263,7 @@ public class SoftBlockRenderer
         {
             return rendered;
         }
-        final int brightness = block.getMixedBrightnessForBlock(world, x, y, z);
+        final int brightness = block.getPackedLightmapCoords(world, new BlockPos(x,y,z));
         if(NoCubes.isBlockSoft(getBlock(world,x + 1, y, z)))
         {
             this.renderGhostLiquid(block, x + 1, y, z, brightness, renderer, world);
@@ -306,7 +309,7 @@ public class SoftBlockRenderer
 
     public boolean renderGhostLiquid(final IBlockState state, final int x, final int y, final int z, final int brightness, final RenderBlocks renderer, final IBlockAccess world)
     {
-        final Tessellator tessellator = Tessellator.instance;
+        final BufferBuilder tessellator = Tessellator.getInstance().getBuffer();
         Block block = state.getBlock();
         final Material material = block.getMaterial(state);
         double height0 = 0.7;
@@ -338,13 +341,44 @@ public class SoftBlockRenderer
         final double minV = icon.getInterpolatedV(0.0);
         final double maxU = icon.getInterpolatedU(16.0);
         final double maxV = icon.getInterpolatedV(16.0);
-        tessellator.setBrightness(brightness);
+        
+        int packedLight = state.getPackedLightmapCoords(world, new BlockPos(x,y,z));
+        int skyLight = packedLight >> 16 & 0xFFFF;
+        int blockLight = packedLight & 0xFFFF;
+        
+        tessellator.pos((double)(x + 0), y + height0, (double)(z + 0)).tex(minU, maxV).lightmap(skyLight, blockLight);
+        setColorOpaque_I(tessellator,getColor(state, world, new BlockPos(x,y,z)));
+        tessellator.endVertex();
+        
+        tessellator.pos((double)(x + 0), y + height2, (double)(z + 1)).tex(minU, maxV).lightmap(skyLight, blockLight);
+        setColorOpaque_I(tessellator,getColor(state, world, new BlockPos(x,y,z)));
+        tessellator.endVertex();
+        
+        tessellator.pos((double)(x + 1), y + height3, (double)(z + 1)).tex(minU, maxV).lightmap(skyLight, blockLight);
+        setColorOpaque_I(tessellator,getColor(state, world, new BlockPos(x,y,z)));
+        tessellator.endVertex();
+        
+        tessellator.pos((double)(x + 1), y + height4, (double)(z + 1)).tex(minU, maxV).lightmap(skyLight, blockLight);
+        setColorOpaque_I(tessellator,getColor(state, world, new BlockPos(x,y,z)));
+        tessellator.endVertex();
+        
+        /*tessellator.setBrightness(brightness);
         tessellator.setColorOpaque_I(getColor(state,world, new BlockPos(x, y, z)));
         tessellator.addVertexWithUV((double)(x + 0), y + height0, (double)(z + 0), minU, minV);
         tessellator.addVertexWithUV((double)(x + 0), y + height2, (double)(z + 1), minU, maxV);
         tessellator.addVertexWithUV((double)(x + 1), y + height3, (double)(z + 1), maxU, maxV);
-        tessellator.addVertexWithUV((double)(x + 1), y + height4, (double)(z + 0), maxU, minV);
+        tessellator.addVertexWithUV((double)(x + 1), y + height4, (double)(z + 0), maxU, minV);*/
         return true;
+    }
+    /**
+     * Sets the color to the given opaque value (stored as byte values packed in an integer).
+     */
+    public void setColorOpaque_I(BufferBuilder tes, int p_78378_1_)
+    {
+        int j = p_78378_1_ >> 16 & 255;
+        int k = p_78378_1_ >> 8 & 255;
+        int l = p_78378_1_ & 255;
+        tes.color(j, k, l, 0xFF);
     }
 
     public static boolean shouldHookRenderer(final Block block)

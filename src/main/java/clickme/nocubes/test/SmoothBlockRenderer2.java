@@ -43,7 +43,7 @@ public class SmoothBlockRenderer2 implements ISimpleBlockRenderingHandler
         long i = x * 3129871 ^ y * 116129781L ^ z;
         i = i * i * 42317861L + i * 11L;
         float f = ((i >> 16 & 0xFL) / 15.0f - 0.5f) * 0.8f;
-        if(block == Blocks.snow_layer)
+        if(block == Blocks.SNOW_LAYER)
         {
             f -= 0.75f;
         }
